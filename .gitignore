@@ -1,0 +1,9 @@
+content.py
+__pycache__
+venv
+.env
+index.js
+package.json
+package-lock.json
+sample.jpg
+temp.py
