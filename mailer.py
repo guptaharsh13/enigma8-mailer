@@ -1,9 +1,10 @@
-import sendgrid
-import traceback
-from pymongo import MongoClient
-from datetime import datetime
-from content import html, html2, text, subject
 from dotenv import dotenv_values
+from datetime import datetime
+import traceback
+import base64
+import sendgrid
+from pymongo import MongoClient
+from content import genHtml, text, subject
 
 config = dotenv_values(".env")
 
@@ -15,9 +16,15 @@ companies = db.get_collection("toSend")
 
 
 def sendEmail(company_name, company_emails, from_email, api_key):
+
     sg = sendgrid.SendGridAPIClient(api_key=api_key)
+
     personalizations = list(
         map(lambda email: {"to": [{"email": email}]}, company_emails))
+
+    attachment = open("brochure.pdf", "rb").read()
+    attachment = base64.b64encode(attachment).decode()
+
     email = {
         "personalizations": personalizations,
         "from": {"email": from_email},
@@ -29,9 +36,16 @@ def sendEmail(company_name, company_emails, from_email, api_key):
             },
             {
                 "type": "text/html",
-                "value": html + company_name + html2
+                "value": genHtml(company_name=company_name)
             }
-        ]
+        ],
+        "attachments": [{
+            "content": attachment,
+            "disposition": "attachment",
+            "filename": "brochure.pdf",
+            "name": "Brochure",
+            "type": "pdf"
+        }]
     }
     try:
         response = sg.client.mail.send.post(request_body=email)
@@ -59,9 +73,11 @@ def main():
         from_email = sender["email"]
         api_key = sender["api_key"]
         for company in companies.find():
-            if count == 100:
-                break
-            if len(company["emails"]) == 2:
+
+            if len(company["emails"]) == 1:
+                if (count + len(company["emails"])) > 100:
+                    break
+
                 if not company["sent"]:
                     sendEmail(
                         company_name=company["name"], company_emails=company["emails"], from_email=from_email, api_key=api_key)
